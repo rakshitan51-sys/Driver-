@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pymongo
+uvicorn[standard]
+pydantic
+python-multipart
+dnspython

@@ -1,0 +1,110 @@
+/* ===== DRIVER PANEL ===== */
+.page-wrap { background: #f0f4f8; min-height: 100vh; }
+.page-content { padding: 70px 14px 80px; max-width: 480px; margin: 0 auto; }
+.page-title { font-size: 1.2rem; font-weight: 800; color: #1a1a2e; text-align: center; margin-bottom: 14px; }
+
+.bus-info-card {
+  background: white; border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.bus-info-left { display: flex; align-items: center; gap: 12px; }
+.bus-emoji { font-size: 32px; }
+.bus-number { font-size: 1.1rem; font-weight: 800; color: #1a1a2e; }
+.bus-route { font-size: 0.82rem; color: #666; margin-top: 2px; }
+.online-badge { font-size: 0.78rem; font-weight: 700; color: #22c55e; background: #f0fdf4; padding: 4px 10px; border-radius: 20px; border: 1px solid #bbf7d0; }
+
+.driver-name-bar {
+  background: white; border-radius: 12px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.95rem; font-weight: 600; color: #2d3748;
+  margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.chevron { margin-left: auto; color: #aaa; }
+
+/* Tab Toggle */
+.tab-toggle {
+  display: flex; background: #e2e8f0; border-radius: 12px;
+  overflow: hidden; margin-bottom: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.tab-btn {
+  flex: 1; padding: 12px; border: none; background: transparent;
+  cursor: pointer; font-weight: 700; font-size: 0.88rem; color: #666;
+  transition: all 0.3s; border-radius: 12px;
+}
+.tab-btn.active-blue { background: #0C2D55; color: white; box-shadow: 0 4px 12px rgba(12,45,85,0.25); }
+.tab-btn.active-orange { background: #E8A020; color: white; box-shadow: 0 4px 12px rgba(232,160,32,0.3); }
+
+/* No route warning */
+.no-route-msg {
+  background: #fef9c3; border: 1.5px solid #fde047; border-radius: 12px;
+  padding: 12px 14px; font-size: 0.85rem; color: #713f12;
+  margin-bottom: 14px; text-align: center; font-weight: 600;
+}
+
+/* Loading */
+.loading-box {
+  text-align: center; padding: 30px; color: #666;
+  font-size: 0.9rem; font-style: italic;
+}
+
+/* Student List */
+.student-list { margin-bottom: 14px; }
+.list-title { font-size: 0.95rem; font-weight: 800; color: #1a1a2e; margin-bottom: 10px; }
+
+.empty-box {
+  background: white; border-radius: 12px; padding: 24px;
+  text-align: center; color: #999; font-size: 0.88rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Student Card */
+.student-card {
+  background: white; border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  border-left: 4px solid #e2e8f0;
+  transition: all 0.2s;
+}
+.student-card:not(.unboarded) { border-left-color: #22c55e; }
+.student-card.unboarded { border-left-color: #e2e8f0; }
+
+.student-info { flex: 1; }
+.student-name { font-size: 0.98rem; font-weight: 700; color: #1a1a2e; }
+.student-email { font-size: 0.78rem; color: #888; margin: 2px 0; }
+.student-time { font-size: 0.78rem; color: #999; }
+.time-val { color: #E8A020; font-weight: 700; margin-left: 4px; }
+
+/* Board Buttons */
+.board-in-btn {
+  background: #1565C0; color: white; border: none;
+  padding: 10px 16px; border-radius: 10px; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(21,101,192,0.3);
+  transition: all 0.2s;
+}
+.board-in-btn:hover { background: #0d47a1; transform: translateY(-1px); }
+
+.board-out-btn {
+  background: #22c55e; color: white; border: none;
+  padding: 10px 16px; border-radius: 10px; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+  transition: all 0.2s;
+}
+.board-out-btn:hover { background: #16a34a; transform: translateY(-1px); }
+
+/* Footer */
+.footer-info {
+  background: white; border-radius: 14px; padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06); text-align: center;
+}
+.gps-row { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
+.gps-row strong { color: #1565C0; }
+.count-row {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 1rem; font-weight: 800; color: #1a1a2e;
+}
+
+
