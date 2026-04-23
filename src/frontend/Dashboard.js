@@ -140,6 +140,8 @@ export default function Dashboard() {
   prevPos.current = { lat, lng, time: Date.now() };
 }, [updateRouteLine]);
 
+  const updateRouteLine = useCallback(...)  ✅ defined first
+  const updateStats = useCallback(...)
   const updateRouteLine = useCallback((roadGeometry) => {
   if (!leafletMap.current || !window.L) return;
   const L = window.L;
@@ -181,7 +183,7 @@ export default function Dashboard() {
         console.error("Location save failed:", e);
       }
     },
-    [updateRouteLine, updateStats]
+    [updateStats]
   );
 
   const startWatching = useCallback(() => {
@@ -266,7 +268,7 @@ export default function Dashboard() {
         { enableHighAccuracy: true, timeout: 12000 }
       );
     }
-  }, [driver.busNo, driver.name, updateRouteLine, updateStats, startWatching]);
+  }, [driver.busNo, driver.name, updateStats, startWatching]);
 
   useEffect(() => {
     if (!window.L) {
