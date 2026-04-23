@@ -14,14 +14,31 @@ async function getRoadDistanceKm(lat1, lng1, lat2, lng2) {
     if (data.code === "Ok" && data.routes.length > 0) {
       return {
         distKm: data.routes[0].distance / 1000,
-        durationSec: data.routes[0].duration,
-        geometry: data.routes[0].geometry.coordinates
+        geometry: data.routes[0].geometry.coordinates,
       };
     }
   } catch (e) {
-    console.warn("OSRM road distance failed:", e);
+    console.warn("OSRM failed:", e);
   }
   return null;
+}
+
+function drawStraightLine(leafletMapRef, routeLineRef, lat, lng) {
+  if (!leafletMapRef.current || !window.L) return;
+  if (routeLineRef.current) leafletMapRef.current.removeLayer(routeLineRef.current);
+  routeLineRef.current = window.L.polyline(
+    [[lat, lng], [COLLEGE_LAT, COLLEGE_LNG]],
+    { color: "#1565C0", weight: 3, dashArray: "8 6", opacity: 0.85 }
+  ).addTo(leafletMapRef.current);
+}
+
+function drawRoadLine(leafletMapRef, routeLineRef, geometry) {
+  if (!leafletMapRef.current || !window.L) return;
+  if (routeLineRef.current) leafletMapRef.current.removeLayer(routeLineRef.current);
+  const latlngs = geometry.map(([lng, lat]) => [lat, lng]);
+  routeLineRef.current = window.L.polyline(latlngs, {
+    color: "#1565C0", weight: 4, opacity: 0.85,
+  }).addTo(leafletMapRef.current);
 }
 
 export default function Dashboard() {
@@ -59,16 +76,14 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!driver.driverId) {
-      navigate("/");
-    }
+    if (!driver.driverId) navigate("/");
   }, [driver.driverId, navigate]);
 
   const fetchCounts = useCallback(async () => {
     if (!driver.driverId) return;
     try {
       const res = await fetch(`https://backenddriver.onrender.com/board-counts/${driver.driverId}`);
-      const d   = await res.json();
+      const d = await res.json();
       if (!d.error && mounted.current) {
         setBoardedCount(d.boarded || 0);
         setBoardedOutCount(d.boarded_out || 0);
@@ -80,7 +95,7 @@ export default function Dashboard() {
     if (!driver.driverId) return;
     try {
       const res = await fetch(`https://backenddriver.onrender.com/driver/${driver.driverId}`);
-      const d   = await res.json();
+      const d = await res.json();
       if (!d.error && mounted.current) {
         const updated = { ...driver, ...d };
         localStorage.setItem("driver", JSON.stringify(updated));
@@ -88,45 +103,36 @@ export default function Dashboard() {
         setRouteInfo({ route: d.route || "Not Assigned", busNo: d.busNo || "—" });
       }
     } catch (_) {}
-  }, [driver.driverId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [driver.driverId]); // eslint-disable-line
 
-  // ✅ updateRouteLine defined FIRST so updateStats can use it
-  const updateRouteLine = useCallback((roadGeometry) => {
-    if (!leafletMap.current || !window.L) return;
-    const L = window.L;
-    if (routeLine.current) leafletMap.current.removeLayer(routeLine.current);
-
-    if (roadGeometry) {
-      const latlngs = roadGeometry.map(([lng, lat]) => [lat, lng]);
-      routeLine.current = L.polyline(latlngs, {
-        color: "#1565C0", weight: 4, opacity: 0.85
-      }).addTo(leafletMap.current);
-    }
-  }, []);
-
-  // ✅ updateStats defined AFTER updateRouteLine
-  const updateStats = useCallback(async (lat, lng, rawSpeedMs) => {
+  const updateLocation = useCallback(async (lat, lng, rawSpeedMs) => {
     if (!mounted.current) return;
 
+    // Step 1 — draw straight line immediately (never blank)
+    drawStraightLine(leafletMap, routeLine, lat, lng);
+
+    // Step 2 — try road distance
     const road = await getRoadDistanceKm(lat, lng, COLLEGE_LAT, COLLEGE_LNG);
+    if (!mounted.current) return;
 
     let distKmVal, etaMinVal;
     if (road) {
       distKmVal = road.distKm.toFixed(1);
       const avgSpeed = rawSpeedMs != null && rawSpeedMs * 3.6 > 5
-        ? rawSpeedMs * 3.6
-        : 40;
+        ? rawSpeedMs * 3.6 : 40;
       etaMinVal = Math.round((road.distKm / avgSpeed) * 60);
-      updateRouteLine(road.geometry);
+      drawRoadLine(leafletMap, routeLine, road.geometry);
     } else {
       const R = 6371;
       const dLat = ((COLLEGE_LAT - lat) * Math.PI) / 180;
       const dLng = ((COLLEGE_LNG - lng) * Math.PI) / 180;
-      const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(COLLEGE_LAT*Math.PI/180)*Math.sin(dLng/2)**2;
-      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const a = Math.sin(dLat / 2) ** 2
+        + Math.cos((lat * Math.PI) / 180)
+        * Math.cos((COLLEGE_LAT * Math.PI) / 180)
+        * Math.sin(dLng / 2) ** 2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       distKmVal = dist.toFixed(1);
       etaMinVal = Math.round((dist / 40) * 60);
-      updateRouteLine(null);
     }
 
     setDistKm(distKmVal);
@@ -137,43 +143,39 @@ export default function Dashboard() {
       kmh = rawSpeedMs * 3.6;
     } else if (prevPos.current) {
       const dtHours = (Date.now() - prevPos.current.time) / 3_600_000;
-      const dd_lat = COLLEGE_LAT - lat, dd_lng = COLLEGE_LNG - lng;
-      const dd = Math.sqrt(dd_lat**2 + dd_lng**2) * 111;
+      const dd = Math.sqrt((COLLEGE_LAT - lat) ** 2 + (COLLEGE_LNG - lng) ** 2) * 111;
       if (dtHours > 0) kmh = dd / dtHours;
     }
     setSpeedKmh(kmh != null ? Math.round(kmh) : 0);
     prevPos.current = { lat, lng, time: Date.now() };
-  }, [updateRouteLine]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
-  const sendLocation = useCallback(
-    async (lat, lng, speedMs) => {
-      if (!mounted.current) return;
-      const cur = (() => {
-        try { return JSON.parse(localStorage.getItem("driver") || "{}"); }
-        catch { return {}; }
-      })();
+  const sendLocation = useCallback(async (lat, lng, speedMs) => {
+    if (!mounted.current) return;
+    const cur = (() => {
+      try { return JSON.parse(localStorage.getItem("driver") || "{}"); }
+      catch { return {}; }
+    })();
 
-      if (busMarker.current && leafletMap.current) {
-        busMarker.current.setLatLng([lat, lng]);
-        leafletMap.current.panTo([lat, lng]);
-      }
+    if (busMarker.current && leafletMap.current) {
+      busMarker.current.setLatLng([lat, lng]);
+      leafletMap.current.panTo([lat, lng]);
+    }
 
-      updateStats(lat, lng, speedMs);
-      setGpsCoords({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
-      setGpsError(false);
+    updateLocation(lat, lng, speedMs);
+    setGpsCoords({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
+    setGpsError(false);
 
-      try {
-        await fetch("https://backenddriver.onrender.com/location", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ driverId: cur.driverId, lat, lng }),
-        });
-      } catch (e) {
-        console.error("Location save failed:", e);
-      }
-    },
-    [updateStats]
-  );
+    try {
+      await fetch("https://backenddriver.onrender.com/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverId: cur.driverId, lat, lng }),
+      });
+    } catch (e) {
+      console.error("Location save failed:", e);
+    }
+  }, [updateLocation]);
 
   const startWatching = useCallback(() => {
     if (window._locationWatcher)
@@ -190,7 +192,6 @@ export default function Dashboard() {
       },
       { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 }
     );
-
     localStorage.setItem("isSharing", "true");
     setSharing(true);
   }, [sendLocation]);
@@ -241,7 +242,8 @@ export default function Dashboard() {
           if (!mounted.current) return;
           const { latitude: lat, longitude: lng } = pos.coords;
           busMarker.current.setLatLng([lat, lng]);
-          updateStats(lat, lng, pos.coords.speed);
+          drawStraightLine(leafletMap, routeLine, lat, lng);
+          updateLocation(lat, lng, pos.coords.speed);
           setGpsCoords({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setGpsError(false);
           leafletMap.current.fitBounds(
@@ -257,45 +259,38 @@ export default function Dashboard() {
         { enableHighAccuracy: true, timeout: 12000 }
       );
     }
-  }, [driver.busNo, driver.name, updateStats, startWatching]);
+  }, [driver.busNo, driver.name, updateLocation, startWatching]);
 
   useEffect(() => {
     if (!window.L) {
       const link = document.createElement("link");
-      link.rel   = "stylesheet";
-      link.href  = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
       document.head.appendChild(link);
-
-      const script  = document.createElement("script");
-      script.src    = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
       script.onload = initMap;
       document.head.appendChild(script);
     } else {
       initMap();
     }
-
     return () => {
       if (leafletMap.current) {
         leafletMap.current.remove();
         leafletMap.current = null;
-        busMarker.current  = null;
-        routeLine.current  = null;
+        busMarker.current = null;
+        routeLine.current = null;
       }
     };
   }, [initMap]);
 
   useEffect(() => {
     if (!driver.driverId) return;
-
     wsRef.current = new WebSocket("wss://backenddriver.onrender.com/ws");
-
     wsRef.current.onmessage = (e) => {
       let data;
-      try { data = JSON.parse(e.data); }
-      catch { return; }
-
+      try { data = JSON.parse(e.data); } catch { return; }
       if (!mounted.current) return;
-
       if (data.type === "route" && data.driverId === driver.driverId) {
         const cur = (() => {
           try { return JSON.parse(localStorage.getItem("driver") || "{}"); }
@@ -307,13 +302,11 @@ export default function Dashboard() {
         setRouteInfo({ route: data.route, busNo: data.busNo });
         alert(`🛣️ Route assigned: ${data.route} | Bus: ${data.busNo}`);
       }
-
       if (data.type === "board_update" && data.driverId === driver.driverId) {
         setBoardedCount(data.boarded || 0);
         setBoardedOutCount(data.boarded_out || 0);
       }
     };
-
     wsRef.current.onerror = () => {};
     wsRef.current.onclose = () => {};
     return () => wsRef.current?.close();
@@ -333,11 +326,11 @@ export default function Dashboard() {
           lat: pos.coords.latitude.toFixed(5),
           lng: pos.coords.longitude.toFixed(5),
         });
-        updateStats(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
+        updateLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
       },
       () => {}
     );
-  }, [sharing, updateStats]);
+  }, [sharing, updateLocation]);
 
   if (!driver.driverId) return null;
 
