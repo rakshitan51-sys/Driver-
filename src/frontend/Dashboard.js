@@ -13,9 +13,9 @@ async function getRoadDistanceKm(lat1, lng1, lat2, lng2) {
     const data = await res.json();
     if (data.code === "Ok" && data.routes.length > 0) {
       return {
-        distKm: data.routes[0].distance / 1000,       // meters → km
-        durationSec: data.routes[0].duration,          // seconds
-        geometry: data.routes[0].geometry.coordinates  // for drawing road path
+        distKm: data.routes[0].distance / 1000,
+        durationSec: data.routes[0].duration,
+        geometry: data.routes[0].geometry.coordinates
       };
     }
   } catch (e) {
@@ -27,10 +27,6 @@ async function getRoadDistanceKm(lat1, lng1, lat2, lng2) {
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  // ✅ FIX: driver must be in useState so it reads localStorage correctly
-  // after navigate("/dashboard") fires from LoginPage.
-  // A plain variable computed at render time will be {} on first render
-  // and immediately trigger the redirect back to "/".
   const [driver, setDriver] = useState(() => {
     try { return JSON.parse(localStorage.getItem("driver") || "{}"); }
     catch { return {}; }
@@ -62,7 +58,6 @@ export default function Dashboard() {
     return () => { mounted.current = false; };
   }, []);
 
-  // ✅ Redirect only if driverId is truly missing
   useEffect(() => {
     if (!driver.driverId) {
       navigate("/");
@@ -89,72 +84,66 @@ export default function Dashboard() {
       if (!d.error && mounted.current) {
         const updated = { ...driver, ...d };
         localStorage.setItem("driver", JSON.stringify(updated));
-        setDriver(updated); // ✅ keep state in sync with localStorage
+        setDriver(updated);
         setRouteInfo({ route: d.route || "Not Assigned", busNo: d.busNo || "—" });
       }
     } catch (_) {}
   }, [driver.driverId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateStats = useCallback(async (lat, lng, rawSpeedMs) => {
-  if (!mounted.current) return;
-
-  // Get road distance from OSRM
-  const road = await getRoadDistanceKm(lat, lng, COLLEGE_LAT, COLLEGE_LNG);
-  
-  let distKmVal, etaMinVal;
-  if (road) {
-    distKmVal = road.distKm.toFixed(1);
-    // Use road duration for ETA if speed is low, otherwise calculate
-    const avgSpeed = rawSpeedMs != null && rawSpeedMs * 3.6 > 5
-      ? rawSpeedMs * 3.6
-      : 40;
-    etaMinVal = Math.round((road.distKm / avgSpeed) * 60);
-    
-    // Draw actual road path on map
-    updateRouteLine(road.geometry);
-  } else {
-    // Fallback to straight line if OSRM fails
-    const R = 6371;
-    const dLat = ((COLLEGE_LAT - lat) * Math.PI) / 180;
-    const dLng = ((COLLEGE_LNG - lng) * Math.PI) / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(COLLEGE_LAT*Math.PI/180)*Math.sin(dLng/2)**2;
-    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    distKmVal = dist.toFixed(1);
-    etaMinVal = Math.round((dist / 40) * 60);
-    updateRouteLine(null);
-  }
-
-  setDistKm(distKmVal);
-  setEtaMin(etaMinVal);
-
-  let kmh = null;
-  if (rawSpeedMs != null && rawSpeedMs >= 0) {
-    kmh = rawSpeedMs * 3.6;
-  } else if (prevPos.current) {
-    const dtHours = (Date.now() - prevPos.current.time) / 3_600_000;
-    const dd_lat = COLLEGE_LAT - lat, dd_lng = COLLEGE_LNG - lng;
-    const dd = Math.sqrt(dd_lat**2 + dd_lng**2) * 111;
-    if (dtHours > 0) kmh = dd / dtHours;
-  }
-  setSpeedKmh(kmh != null ? Math.round(kmh) : 0);
-  prevPos.current = { lat, lng, time: Date.now() };
-}, [updateRouteLine]);
-
-  const updateRouteLine = useCallback(...)  ✅ defined first
-  const updateStats = useCallback(...)
+  // ✅ updateRouteLine defined FIRST so updateStats can use it
   const updateRouteLine = useCallback((roadGeometry) => {
-  if (!leafletMap.current || !window.L) return;
-  const L = window.L;
-  if (routeLine.current) leafletMap.current.removeLayer(routeLine.current);
+    if (!leafletMap.current || !window.L) return;
+    const L = window.L;
+    if (routeLine.current) leafletMap.current.removeLayer(routeLine.current);
 
-  if (roadGeometry) {
-    // Draw actual road path (OSRM returns [lng, lat] so we flip to [lat, lng])
-    const latlngs = roadGeometry.map(([lng, lat]) => [lat, lng]);
-    routeLine.current = L.polyline(latlngs, {
-      color: "#1565C0", weight: 4, opacity: 0.85
-    }).addTo(leafletMap.current);
-  }
-}, []);
+    if (roadGeometry) {
+      const latlngs = roadGeometry.map(([lng, lat]) => [lat, lng]);
+      routeLine.current = L.polyline(latlngs, {
+        color: "#1565C0", weight: 4, opacity: 0.85
+      }).addTo(leafletMap.current);
+    }
+  }, []);
+
+  // ✅ updateStats defined AFTER updateRouteLine
+  const updateStats = useCallback(async (lat, lng, rawSpeedMs) => {
+    if (!mounted.current) return;
+
+    const road = await getRoadDistanceKm(lat, lng, COLLEGE_LAT, COLLEGE_LNG);
+
+    let distKmVal, etaMinVal;
+    if (road) {
+      distKmVal = road.distKm.toFixed(1);
+      const avgSpeed = rawSpeedMs != null && rawSpeedMs * 3.6 > 5
+        ? rawSpeedMs * 3.6
+        : 40;
+      etaMinVal = Math.round((road.distKm / avgSpeed) * 60);
+      updateRouteLine(road.geometry);
+    } else {
+      const R = 6371;
+      const dLat = ((COLLEGE_LAT - lat) * Math.PI) / 180;
+      const dLng = ((COLLEGE_LNG - lng) * Math.PI) / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(COLLEGE_LAT*Math.PI/180)*Math.sin(dLng/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      distKmVal = dist.toFixed(1);
+      etaMinVal = Math.round((dist / 40) * 60);
+      updateRouteLine(null);
+    }
+
+    setDistKm(distKmVal);
+    setEtaMin(etaMinVal);
+
+    let kmh = null;
+    if (rawSpeedMs != null && rawSpeedMs >= 0) {
+      kmh = rawSpeedMs * 3.6;
+    } else if (prevPos.current) {
+      const dtHours = (Date.now() - prevPos.current.time) / 3_600_000;
+      const dd_lat = COLLEGE_LAT - lat, dd_lng = COLLEGE_LNG - lng;
+      const dd = Math.sqrt(dd_lat**2 + dd_lng**2) * 111;
+      if (dtHours > 0) kmh = dd / dtHours;
+    }
+    setSpeedKmh(kmh != null ? Math.round(kmh) : 0);
+    prevPos.current = { lat, lng, time: Date.now() };
+  }, [updateRouteLine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendLocation = useCallback(
     async (lat, lng, speedMs) => {
@@ -168,7 +157,7 @@ export default function Dashboard() {
         busMarker.current.setLatLng([lat, lng]);
         leafletMap.current.panTo([lat, lng]);
       }
-      
+
       updateStats(lat, lng, speedMs);
       setGpsCoords({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
       setGpsError(false);
@@ -298,7 +287,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!driver.driverId) return;
 
-    wsRef.current = new WebSocket("wss://https://backenddriver.onrender.com/ws");
+    wsRef.current = new WebSocket("wss://backenddriver.onrender.com/ws");
 
     wsRef.current.onmessage = (e) => {
       let data;
@@ -314,7 +303,7 @@ export default function Dashboard() {
         })();
         const updated = { ...cur, route: data.route, busNo: data.busNo };
         localStorage.setItem("driver", JSON.stringify(updated));
-        setDriver(updated); // ✅ update state so UI reflects new route instantly
+        setDriver(updated);
         setRouteInfo({ route: data.route, busNo: data.busNo });
         alert(`🛣️ Route assigned: ${data.route} | Bus: ${data.busNo}`);
       }
